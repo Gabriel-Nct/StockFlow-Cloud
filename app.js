@@ -4,6 +4,8 @@ const swaggerUi = require("swagger-ui-express");
 const userRoutes = require("./routes/users");
 const { errorHandler, notFoundHandler } = require("./middlewares/errorHandler");
 const authRoutes = require("./routes/auth");
+const productRoutes = require("./routes/products");
+const inventoryRoutes = require("./routes/inventory");
 const { initializeDatabase } = require("./models/migrations");
 require("dotenv").config();
 
@@ -73,8 +75,10 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 // Middleware pour parser le JSON
 app.use(express.json());
 
-// Routes d'authentification
+// Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/products", productRoutes);
+app.use("/api/inventory", inventoryRoutes);
 
 /**
  * @swagger

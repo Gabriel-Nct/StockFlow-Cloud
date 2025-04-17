@@ -208,10 +208,27 @@ module.exports = {
   // Trouver un utilisateur par son nom d'utilisateur (avec mot de passe)
   findByUsername: async (username) => {
     try {
+      console.log(
+        `Recherche de l'utilisateur ${username} dans la base de données`
+      );
       const result = await db.query("SELECT * FROM users WHERE username = $1", [
         username,
       ]);
-      return result.rows[0] || null;
+
+      const user = result.rows[0] || null;
+      console.log(
+        `Utilisateur ${username} ${user ? "trouvé" : "non trouvé"} dans la DB`
+      );
+
+      if (user) {
+        console.log(
+          `Données utilisateur: ID=${user.id}, Role=${
+            user.role
+          }, PasswordExists=${!!user.password}`
+        );
+      }
+
+      return user;
     } catch (error) {
       console.error(
         `Erreur lors de la recherche de l'utilisateur "${username}":`,
