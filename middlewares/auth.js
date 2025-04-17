@@ -1,8 +1,11 @@
 const jwt = require("jsonwebtoken");
 const userModel = require("../models/users");
+require("dotenv").config();
 
 // Clé secrète pour signer les tokens JWT - dans un environnement réel, utilisez une variable d'environnement
-const JWT_SECRET = "votre_cle_secrete_tres_securisee";
+const JWT_SECRET = process.env.JWT_SECRET || "votre_clé_secrète";
+// Durée de validité du token JWT - dans un environnement réel, utilisez une variable d'environnement
+const JWT_EXPIRATION = process.env.JWT_EXPIRATION || "1h";
 
 // Middleware pour vérifier le token JWT
 const authenticateJWT = (req, res, next) => {
@@ -47,6 +50,7 @@ const authorizeRole = (roles = []) => {
 
 module.exports = {
   JWT_SECRET,
+  JWT_EXPIRATION,
   authenticateJWT,
   authorizeRole,
 };
