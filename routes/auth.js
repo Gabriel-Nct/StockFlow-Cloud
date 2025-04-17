@@ -3,6 +3,7 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs"); // Utiliser bcryptjs, pas bcrypt
 const router = express.Router();
 const userModel = require("../models/users");
+const db = require("../config/database");
 const { JWT_SECRET, authenticateJWT } = require("../middlewares/auth");
 const { body } = require("express-validator");
 const { checkValidation } = require("../middlewares/validators");
@@ -62,26 +63,26 @@ router.post(
   async (req, res) => {
     try {
       const { username, password } = req.body;
+      console.log(`Tentative de connexion pour: ${username}`);
 
-      // Trouver l'utilisateur
-      const user = userModel.findByUsername(username);
+      // Récupérer l'utilisateur directement de la DB
+      const result = await db.query("SELECT * FROM users WHERE username = $1", [
+        username,
+      ]);
+      const user = result.rows[0];
+
       if (!user) {
+        console.log(`Utilisateur ${username} non trouvé`);
         return res.status(401).json({ message: "Identifiants invalides" });
       }
 
-      // Vérifier le mot de passe - avec bcryptjs si c'est un hash, ou directement sinon
-      let validPassword = false;
+      console.log(`Utilisateur trouvé: ID=${user.id}, Role=${user.role}`);
 
-      if (
-        user.password.startsWith("$2a$") ||
-        user.password.startsWith("$2b$")
-      ) {
-        // Hash bcrypt
-        validPassword = await bcrypt.compare(password, user.password);
-      } else {
-        // Mot de passe en clair
-        validPassword = password === user.password;
-      }
+      // Vérifier le mot de passe avec bcrypt
+      const validPassword = await bcrypt.compare(password, user.password);
+      console.log(
+        `Validation du mot de passe: ${validPassword ? "Succès" : "Échec"}`
+      );
 
       if (!validPassword) {
         return res.status(401).json({ message: "Identifiants invalides" });
@@ -228,6 +229,26 @@ router.get("/me", authenticateJWT, (req, res) => {
     res.json(user);
   } else {
     res.status(404).json({ message: "Utilisateur non trouvé" });
+  }
+});
+
+// Route temporaire pour vérifier la récupération d'un utilisateur
+router.get("/check-user/:username", async (req, res) => {
+  try {
+    const user = await userModel.findByUsername(req.params.username);
+    if (user) {
+      // Masquer le mot de passe complet pour la sécurité
+      const sanitizedUser = {
+        ...user,
+        password: user.password ? `${user.password.substring(0, 10)}...` : null,
+      };
+      res.json({ found: true, user: sanitizedUser });
+    } else {
+      res.json({ found: false });
+    }
+  } catch (error) {
+    console.error("Erreur:", error);
+    res.status(500).json({ error: error.message });
   }
 });
 
