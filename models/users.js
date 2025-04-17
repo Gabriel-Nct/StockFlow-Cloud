@@ -1,4 +1,5 @@
-const bcrypt = require("bcryptjs"); // Utiliser bcryptjs, pas bcrypt
+const bcrypt = require("bcryptjs");
+const db = require("../config/database");
 
 // Simulation d'une base de données avec un tableau
 // Utilisation de mots de passe en clair pour simplifier le débogage
@@ -22,119 +23,207 @@ let users = [
 ];
 
 module.exports = {
-  findAll: () => users.map(({ password, ...user }) => user), // Ne jamais renvoyer les mots de passe
-
-  findById: (id) => {
-    const user = users.find((user) => user.id === parseInt(id));
-    if (user) {
-      const { password, ...userWithoutPassword } = user;
-      return userWithoutPassword;
-    }
-    return null;
-  },
-
-  create: async (userData) => {
-    const newId =
-      users.length > 0 ? Math.max(...users.map((u) => u.id)) + 1 : 1;
-
-    // Le hashage est maintenant géré dans la route auth.js
-    // pour éviter les problèmes de dépendance
-
-    const newUser = {
-      id: newId,
-      ...userData,
-      role: userData.role || "user", // Par défaut, le rôle est 'user'
-    };
-
-    users.push(newUser);
-
-    // Retourner l'utilisateur sans le mot de passe
-    const { password, ...userWithoutPassword } = newUser;
-    return userWithoutPassword;
-  },
-
-  update: async (id, userData) => {
-    const index = users.findIndex((user) => user.id === parseInt(id));
-    if (index !== -1) {
-      // Le hashage est maintenant géré dans les routes
-      // pour éviter les problèmes de dépendance
-
-      users[index] = { ...users[index], ...userData };
-
-      // Retourner l'utilisateur sans le mot de passe
-      const { password, ...userWithoutPassword } = users[index];
-      return userWithoutPassword;
-    }
-    return null;
-  },
-
-  delete: (id) => {
-    const index = users.findIndex((user) => user.id === parseInt(id));
-    if (index !== -1) {
-      const { password, ...deletedUser } = users[index];
-      users = users.filter((user) => user.id !== parseInt(id));
-      return deletedUser;
-    }
-    return null;
-  },
-
-  findWithFilters: (filters = {}, pagination = {}) => {
-    let result = [...users];
-
-    // Filtrage
-    if (filters.name) {
-      result = result.filter((user) =>
-        user.name.toLowerCase().includes(filters.name.toLowerCase())
-      );
-    }
-
-    if (filters.email) {
-      result = result.filter((user) =>
-        user.email.toLowerCase().includes(filters.email.toLowerCase())
-      );
-    }
-
-    // Obtenir le compte total avant pagination
-    const total = result.length;
-
-    // Pagination
-    const page = parseInt(pagination.page) || 1;
-    const limit = parseInt(pagination.limit) || 10;
-    const startIndex = (page - 1) * limit;
-    const endIndex = page * limit;
-
-    // Appliquer la pagination
-    const paginatedUsers = result
-      .slice(startIndex, endIndex)
-      .map(({ password, ...user }) => user);
-
-    return {
-      data: paginatedUsers,
-      pagination: {
-        total,
-        page,
-        limit,
-        pages: Math.ceil(total / limit),
-      },
-    };
-  },
-
-  // Fonctions pour l'authentification
-  findByUsername: (username) => {
-    return users.find((user) => user.username === username);
-  },
-
-  validatePassword: async (plainPassword, hashedPassword) => {
+  // Récupérer tous les utilisateurs (sans leur mot de passe)
+  findAll: async () => {
     try {
-      // Pour les mots de passe en clair actuellement dans la base de données
-      if (
-        !hashedPassword.startsWith("$2a$") &&
-        !hashedPassword.startsWith("$2b$")
-      ) {
-        return plainPassword === hashedPassword;
+      const result = await db.query(
+        "SELECT id, name, email, username, role, created_at, updated_at FROM users"
+      );
+      return result.rows;
+    } catch (error) {
+      console.error("Erreur lors de la récupération des utilisateurs:", error);
+      throw error;
+    }
+  },
+
+  // Récupérer un utilisateur par son ID (sans son mot de passe)
+  findById: async (id) => {
+    try {
+      const result = await db.query(
+        "SELECT id, name, email, username, role, created_at, updated_at FROM users WHERE id = $1",
+        [id]
+      );
+      return result.rows[0] || null;
+    } catch (error) {
+      console.error(
+        `Erreur lors de la récupération de l'utilisateur #${id}:`,
+        error
+      );
+      throw error;
+    }
+  },
+
+  // Créer un nouvel utilisateur
+  create: async (userData) => {
+    try {
+      const { name, email, username, password, role = "user" } = userData;
+
+      const result = await db.query(
+        `INSERT INTO users (name, email, username, password, role) 
+         VALUES ($1, $2, $3, $4, $5) 
+         RETURNING id, name, email, username, role, created_at, updated_at`,
+        [name, email, username, password, role]
+      );
+
+      return result.rows[0];
+    } catch (error) {
+      console.error("Erreur lors de la création de l'utilisateur:", error);
+      throw error;
+    }
+  },
+
+  // Mettre à jour un utilisateur
+  update: async (id, userData) => {
+    try {
+      // Construire dynamiquement la requête de mise à jour
+      const fields = [];
+      const values = [];
+      let paramIndex = 1;
+
+      // Ajouter chaque champ fourni à la requête
+      for (const [key, value] of Object.entries(userData)) {
+        if (["name", "email", "username", "password", "role"].includes(key)) {
+          fields.push(`${key} = $${paramIndex}`);
+          values.push(value);
+          paramIndex++;
+        }
       }
 
-      // Pour les mots de passe hashés
+      // Ajouter la mise à jour de updated_at
+      fields.push(`updated_at = CURRENT_TIMESTAMP`);
+
+      // Ajouter l'ID à la fin des paramètres
+      values.push(id);
+
+      // Si aucun champ à mettre à jour, retourner l'utilisateur existant
+      if (fields.length === 1) {
+        // Seulement updated_at
+        const existingUser = await this.findById(id);
+        return existingUser;
+      }
+
+      const query = `
+        UPDATE users 
+        SET ${fields.join(", ")} 
+        WHERE id = $${paramIndex} 
+        RETURNING id, name, email, username, role, created_at, updated_at
+      `;
+
+      const result = await db.query(query, values);
+      return result.rows[0] || null;
+    } catch (error) {
+      console.error(
+        `Erreur lors de la mise à jour de l'utilisateur #${id}:`,
+        error
+      );
+      throw error;
+    }
+  },
+
+  // Supprimer un utilisateur
+  delete: async (id) => {
+    try {
+      // D'abord récupérer les informations de l'utilisateur avant suppression
+      const user = await this.findById(id);
+      if (!user) return null;
+
+      // Ensuite supprimer l'utilisateur
+      await db.query("DELETE FROM users WHERE id = $1", [id]);
+
+      return user;
+    } catch (error) {
+      console.error(
+        `Erreur lors de la suppression de l'utilisateur #${id}:`,
+        error
+      );
+      throw error;
+    }
+  },
+
+  // Rechercher des utilisateurs avec filtres et pagination
+  findWithFilters: async (filters = {}, pagination = {}) => {
+    try {
+      const { name, email } = filters;
+      const page = parseInt(pagination.page) || 1;
+      const limit = parseInt(pagination.limit) || 10;
+      const offset = (page - 1) * limit;
+
+      // Construire la clause WHERE
+      const whereConditions = [];
+      const params = [];
+      let paramIndex = 1;
+
+      if (name) {
+        whereConditions.push(`name ILIKE $${paramIndex}`);
+        params.push(`%${name}%`);
+        paramIndex++;
+      }
+
+      if (email) {
+        whereConditions.push(`email ILIKE $${paramIndex}`);
+        params.push(`%${email}%`);
+        paramIndex++;
+      }
+
+      const whereClause =
+        whereConditions.length > 0
+          ? `WHERE ${whereConditions.join(" AND ")}`
+          : "";
+
+      // Compter le nombre total de résultats
+      const countQuery = `
+        SELECT COUNT(*) FROM users ${whereClause}
+      `;
+
+      const countResult = await db.query(countQuery, params);
+      const total = parseInt(countResult.rows[0].count);
+
+      // Récupérer les données avec pagination
+      const dataParams = [...params, limit, offset];
+      const dataQuery = `
+        SELECT id, name, email, username, role, created_at, updated_at 
+        FROM users 
+        ${whereClause}
+        ORDER BY id 
+        LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+      `;
+
+      const dataResult = await db.query(dataQuery, dataParams);
+
+      return {
+        data: dataResult.rows,
+        pagination: {
+          total,
+          page,
+          limit,
+          pages: Math.ceil(total / limit),
+        },
+      };
+    } catch (error) {
+      console.error("Erreur lors de la recherche des utilisateurs:", error);
+      throw error;
+    }
+  },
+
+  // Trouver un utilisateur par son nom d'utilisateur (avec mot de passe)
+  findByUsername: async (username) => {
+    try {
+      const result = await db.query("SELECT * FROM users WHERE username = $1", [
+        username,
+      ]);
+      return result.rows[0] || null;
+    } catch (error) {
+      console.error(
+        `Erreur lors de la recherche de l'utilisateur "${username}":`,
+        error
+      );
+      throw error;
+    }
+  },
+
+  // Valider un mot de passe
+  validatePassword: async (plainPassword, hashedPassword) => {
+    try {
       return await bcrypt.compare(plainPassword, hashedPassword);
     } catch (error) {
       console.error("Erreur lors de la validation du mot de passe:", error);

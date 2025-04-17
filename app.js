@@ -4,8 +4,25 @@ const swaggerUi = require("swagger-ui-express");
 const userRoutes = require("./routes/users");
 const { errorHandler, notFoundHandler } = require("./middlewares/errorHandler");
 const authRoutes = require("./routes/auth");
+const { initializeDatabase } = require("./models/migrations");
+require("dotenv").config();
+
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Initialisation de la base de données
+(async () => {
+  try {
+    await initializeDatabase();
+    console.log("Base de données initialisée avec succès");
+  } catch (error) {
+    console.error(
+      "Erreur lors de l'initialisation de la base de données:",
+      error
+    );
+    process.exit(1); // Quitter l'application en cas d'échec
+  }
+})();
 
 // Configuration Swagger
 const swaggerOptions = {
