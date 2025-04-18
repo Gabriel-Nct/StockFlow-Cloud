@@ -7,6 +7,7 @@ const authRoutes = require("./routes/auth");
 const productRoutes = require("./routes/products");
 const inventoryRoutes = require("./routes/inventory");
 const { initializeDatabase } = require("./models/migrations");
+const cors = require("cors");
 require("dotenv").config();
 
 const app = express();
@@ -74,6 +75,7 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 
 // Middleware pour parser le JSON
 app.use(express.json());
+app.use(cors());
 
 // Routes
 app.use("/api/auth", authRoutes);

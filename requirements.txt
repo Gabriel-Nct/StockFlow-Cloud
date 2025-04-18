@@ -7,3 +7,4 @@ npm install swagger-ui-express swagger-jsdoc
 npm install express-validator
 npm install jsonwebtoken bcryptjs
 npm install pg knex dotenv
+npm install cors
