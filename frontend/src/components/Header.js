@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { FiMenu, FiBell, FiUser, FiLogOut } from "react-icons/fi";
+import logo from "../assets/logo192.png";
 
 const Header = ({ toggleSidebar }) => {
   const { currentUser, logout } = useAuth();
@@ -20,6 +21,7 @@ const Header = ({ toggleSidebar }) => {
           >
             <FiMenu className="h-6 w-6" />
           </button>
+          <img src={logo} alt="StockFlow Logo" className="h-8 w-auto mr-2" />
           <h1 className="text-lg font-semibold text-primary-700 ml-2 md:ml-0">
             StockFlow Cloud
           </h1>

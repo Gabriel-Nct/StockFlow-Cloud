@@ -3,6 +3,8 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
 import Products from "./pages/Products";
 import Inventory from "./pages/Inventory";
+import Users from "./pages/Users"; // Importer depuis le dossier pages
+import Settings from "./pages/Settings"; // Importer depuis le dossier pages
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import NotFound from "./pages/NotFound";
@@ -27,6 +29,8 @@ function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/products" element={<Products />} />
             <Route path="/inventory" element={<Inventory />} />
+            <Route path="/users" element={<Users />} />
+            <Route path="/settings" element={<Settings />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>

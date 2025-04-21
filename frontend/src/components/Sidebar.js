@@ -2,6 +2,7 @@ import React from "react";
 import { NavLink } from "react-router-dom";
 import { FiHome, FiBox, FiPackage, FiUsers, FiSettings } from "react-icons/fi";
 import { useAuth } from "../contexts/AuthContext";
+import logo from "../assets/logo192.png";
 
 const Sidebar = () => {
   const { currentUser } = useAuth();
@@ -15,7 +16,7 @@ const Sidebar = () => {
     <div className="h-full flex flex-col">
       {/* Logo */}
       <div className="p-4 border-b border-primary-700">
-        <h1 className="text-xl font-bold text-white">StockFlow Cloud</h1>
+        <h1 className="text-xl font-bold text-white">Gestion de Stock</h1>
       </div>
 
       {/* Navigation */}

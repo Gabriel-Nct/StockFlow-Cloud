@@ -140,6 +140,7 @@ router.post(
  *       400:
  *         description: Validation échouée ou utilisateur déjà existant
  */
+// Correction de la fonction d'inscription
 router.post(
   "/register",
   [
@@ -169,18 +170,23 @@ router.post(
     try {
       const { username, email, password } = req.body;
 
-      // Vérifier si le nom d'utilisateur existe déjà
-      const existingUser = userModel.findByUsername(username);
-      if (existingUser) {
+      // Vérifier si le nom d'utilisateur existe déjà directement dans la base de données
+      const usernameResult = await db.query(
+        "SELECT * FROM users WHERE username = $1",
+        [username]
+      );
+      if (usernameResult.rows.length > 0) {
         return res
           .status(400)
           .json({ message: "Ce nom d'utilisateur est déjà utilisé" });
       }
 
-      // Vérifier si l'email existe déjà
-      const users = userModel.findAll();
-      const emailExists = users.some((user) => user.email === email);
-      if (emailExists) {
+      // Vérifier si l'email existe déjà directement dans la base de données
+      const emailResult = await db.query(
+        "SELECT * FROM users WHERE email = $1",
+        [email]
+      );
+      if (emailResult.rows.length > 0) {
         return res.status(400).json({ message: "Cet email est déjà utilisé" });
       }
 
@@ -188,15 +194,15 @@ router.post(
       const saltRounds = 10;
       const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-      // Force le rôle à "user" pour l'inscription publique
-      const userData = {
-        ...req.body,
-        password: hashedPassword,
-        role: "user", // Toujours attribuer le rôle "user" lors de l'inscription publique
-      };
+      // Insérer l'utilisateur directement dans la base de données
+      const insertResult = await db.query(
+        `INSERT INTO users (name, email, username, password, role)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING id, name, email, username, role, created_at, updated_at`,
+        [req.body.name, email, username, hashedPassword, "user"]
+      );
 
-      // Créer l'utilisateur
-      const newUser = await userModel.create(userData);
+      const newUser = insertResult.rows[0];
 
       res.status(201).json({
         message: "Utilisateur créé avec succès",
